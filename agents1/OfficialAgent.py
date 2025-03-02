@@ -99,7 +99,7 @@ class BaselineAgent(ArtificialBrain):
         self._process_messages(state, self._team_members, self._condition)
         # Initialize and update trust beliefs for team members
         trustBeliefs = self._loadBelief(self._team_members, self._folder)
-        self._trustBelief(self._team_members, trustBeliefs, self._folder, self._received_messages)
+        self._trustBelief(self._team_members, trustBeliefs, self._folder, self._received_messages, state)
 
         # Check whether human is close in distance
         if state[{'is_human_agent': True}]:
@@ -911,10 +911,14 @@ class BaselineAgent(ArtificialBrain):
         # Create a dictionary with trust values for all team members
         trustBeliefs = {}
         # Set a default starting trust value
-        default = 0.5
+        competence = 0.5
+        willingness = 0.5 
+        name = self._human_name
         trustfile_header = []
         trustfile_contents = []
         # Check if agent already collaborated with this human before, if yes: load the corresponding trust values, if no: initialize using default trust values
+
+        #TODO Separate trust for search & rescue
         with open(folder + '/beliefs/allTrustBeliefs.csv') as csvfile:
             reader = csv.reader(csvfile, delimiter=';', quotechar="'")
             for row in reader:
@@ -926,32 +930,91 @@ class BaselineAgent(ArtificialBrain):
                     name = row[0]
                     competence = float(row[1])
                     willingness = float(row[2])
-                    trustBeliefs[name] = {'competence': competence, 'willingness': willingness}
                 # Initialize default trust values
-                if row and row[0] != self._human_name:
-                    competence = default
-                    willingness = default
-                    trustBeliefs[self._human_name] = {'competence': competence, 'willingness': willingness}
+                # if row and row[0] != self._human_name:
+                #     competence = default
+                #     willingness = default
+          
+        trustBeliefs[name] = {'competence': competence, 'willingness': willingness}
         return trustBeliefs
 
-    def _trustBelief(self, members, trustBeliefs, folder, receivedMessages):
+    def _trustBelief(self, members, trustBeliefs, folder, receivedMessages, state):
         '''
         Baseline implementation of a trust belief. Creates a dictionary with trust belief scores for each team member, for example based on the received messages.
         '''
-        # Update the trust value based on for example the received messages
-        for message in receivedMessages:
-            # Increase agent trust in a team member that rescued a victim
-            if 'Collect' in message:
-                trustBeliefs[self._human_name]['competence'] += 0.10
-                # Restrict the competence belief to a range of -1 to 1
-                trustBeliefs[self._human_name]['competence'] = np.clip(trustBeliefs[self._human_name]['competence'], -1,
-                                                                       1)
+        
+        #WILLINGNESS PART
+
+        dropzone_locs = list(map(lambda x: x['location'], self._get_drop_zones(state)))
+
+        # if self._send_messages and receivedMessages and 'Please decide whether to "Rescue' in self._send_messages[-1] and receivedMessages[-1] == 'Continue' and self._answered:
+        #     # If agent has requested for the human's help to move an obstacle or rescue a victim and the human ignores the request, decrease willingness slightly
+        #     if receivedMessages[-1] == 'Continue':
+        #         trustBeliefs[self._human_name]['willingness'] -= 0.05
+        #     # If human accepts request, increase willingness slightly   
+        #     if receivedMessages[-1].startswith('Rescue'):
+        #         trustBeliefs[self._human_name]['willingness'] += 0.05
+        
+        # If victim successfully delivered/dropped while carrying together, increase/decrease willingness significantly
+        if self._carrying_together and any(list(map(lambda info: 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0, state.values()))):
+            if state[self.agent_id]['location'] in dropzone_locs:
+                trustBeliefs[self._human_name]['willingness'] += 0.2
+            else:
+                trustBeliefs[self._human_name]['willingness'] -= 0.2
+
+        # Every time you check that the human has/has not delivered a victim they claim they collected, increase/decrease willingness
+        processed = []
+        for info in state.values():
+            if 'is_goal_block' in info and info['is_goal_block']: #TODO: Broken, doesn't just search vivinity
+                vic = str(info['img_name'][8:-4])
+                if(vic not in processed):
+                    if(len([x for x in state.values() if 'class_inheritance' in x and 'CollectableBlock' in x['class_inheritance'] and str(x['img_name'][8:-4]) == vic]) == len([x for x in self._received_messages if 'Collect:' in x and vic in x])):
+                        trustBeliefs[self._human_name]['willingness'] += 0.1
+                    else:
+                        trustBeliefs[self._human_name]['willingness'] -= 0.1
+                    processed.append(vic)
+
+        # If human lied about a victim being in a specific room, decrease willingness significantly
+        if self._send_messages and 'not present in' in self._send_messages[-1]: 
+            trustBeliefs[self._human_name]['willingness'] -= 0.2
+            del self._send_messages[-1] #Maybe there's a better way to do this?
+
+        # # Update the trust value based on for example the received messages
+        # for message in receivedMessages:
+        #     # Increase agent trust in a team member that rescued a victim
+        #     if 'Collect' in message:
+        #         trustBeliefs[self._human_name]['competence'] += 0.10
+        #         # Restrict the competence belief to a range of -1 to 1
+        #         trustBeliefs[self._human_name]['competence'] = np.clip(trustBeliefs[self._human_name]['competence'], -1,
+        #                                                                1)
+        
+        #TODO Separate trust for search & rescue
         # Save current trust belief values so we can later use and retrieve them to add to a csv file with all the logged trust belief values
         with open(folder + '/beliefs/currentTrustBelief.csv', mode='w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(['name', 'competence', 'willingness'])
             csv_writer.writerow([self._human_name, trustBeliefs[self._human_name]['competence'],
                                  trustBeliefs[self._human_name]['willingness']])
+
+        with open(folder + '/beliefs/allTrustBeliefs.csv', mode='r') as csv_file:
+
+            data = csv_file.readlines()
+            index = -1
+            i = 0
+            for line in data:
+                fields = line.split(';')
+                if fields[0] == self._human_name:
+                    index = i
+                    break
+                i += 1
+
+            if index == -1:
+                data.append(self._human_name + ';' + str(trustBeliefs[self._human_name]['competence']) + ';' + str(trustBeliefs[self._human_name]['willingness']) + '\n')
+            else:
+                data[index] = self._human_name + ';' + str(trustBeliefs[self._human_name]['competence']) + ';' + str(trustBeliefs[self._human_name]['willingness']) + '\n'
+            
+        with open(folder + '/beliefs/allTrustBeliefs.csv', mode='w') as csv_file:
+            csv_file.writelines(data)    
 
         return trustBeliefs
 
