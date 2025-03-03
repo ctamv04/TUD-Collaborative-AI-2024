@@ -91,10 +91,14 @@ class BaselineAgent(ArtificialBrain):
             if member != agent_name and member not in self._team_members:
                 self._team_members.append(member)
         # Create a list of received messages from the human team member
-        for mssg in self.received_messages:
-            for member in self._team_members:
-                if mssg.from_id == member and mssg.content not in self._received_messages:
-                    self._received_messages.append(mssg.content)
+        new_messages = []
+        i = 0
+        for mssg in [m for m in self.received_messages if m.from_id in self._team_members]:
+            if len(self._received_messages) < i+1 or mssg.content != self._received_messages[i]:
+                new_messages.append(mssg.content)
+            i += 1
+        self._received_messages = self._received_messages + new_messages
+
         # Process messages from team members
         self._process_messages(state, self._team_members, self._condition)
         # Initialize and update trust beliefs for team members
@@ -937,6 +941,11 @@ class BaselineAgent(ArtificialBrain):
           
         trustBeliefs[name] = {'competence': competence, 'willingness': willingness}
         return trustBeliefs
+    
+    def _checkIfInVicinity(self, state, location):
+
+        distance = tuple(map(abs, tuple(a - b for a, b in zip(location, state[self.agent_id]['location']))))
+        return distance <= (1,0) or distance <= (0,1)
 
     def _trustBelief(self, members, trustBeliefs, folder, receivedMessages, state):
         '''
@@ -947,37 +956,47 @@ class BaselineAgent(ArtificialBrain):
 
         dropzone_locs = list(map(lambda x: x['location'], self._get_drop_zones(state)))
 
-        # if self._send_messages and receivedMessages and 'Please decide whether to "Rescue' in self._send_messages[-1] and receivedMessages[-1] == 'Continue' and self._answered:
-        #     # If agent has requested for the human's help to move an obstacle or rescue a victim and the human ignores the request, decrease willingness slightly
-        #     if receivedMessages[-1] == 'Continue':
-        #         trustBeliefs[self._human_name]['willingness'] -= 0.05
-        #     # If human accepts request, increase willingness slightly   
-        #     if receivedMessages[-1].startswith('Rescue'):
-        #         trustBeliefs[self._human_name]['willingness'] += 0.05
+        if Phase.FOLLOW_ROOM_SEARCH_PATH == self._phase and receivedMessages:
+            # If agent has requested for the human's help to move an obstacle or rescue a victim and the human ignores the request, decrease willingness slightly
+            if receivedMessages[-1] == 'Continue':
+                trustBeliefs[self._human_name]['willingness'] -= 0.05
+            # If human accepts request, increase willingness slightly   
+            if receivedMessages[-1].startswith('Rescue'):
+                trustBeliefs[self._human_name]['willingness'] += 0.05
         
         # If victim successfully delivered/dropped while carrying together, increase/decrease willingness significantly
-        if self._carrying_together and any(list(map(lambda info: 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0, state.values()))):
+        if self._carrying_together and any(list(map(lambda info: 'location' in info and self._checkIfInVicinity(state, info['location']) and 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0, state.values()))):
             if state[self.agent_id]['location'] in dropzone_locs:
                 trustBeliefs[self._human_name]['willingness'] += 0.2
-            else:
-                trustBeliefs[self._human_name]['willingness'] -= 0.2
+            # else:
+            #     trustBeliefs[self._human_name]['willingness'] -= 0.2 #todo: Happens twice for some reason
 
         # Every time you check that the human has/has not delivered a victim they claim they collected, increase/decrease willingness
+        # TODO: #Happens too many times
         processed = []
         for info in state.values():
-            if 'is_goal_block' in info and info['is_goal_block']: #TODO: Broken, doesn't just search vivinity
+            if 'location' in info and self._checkIfInVicinity(state, info['location']) and 'is_goal_block' in info and info['is_goal_block']:
                 vic = str(info['img_name'][8:-4])
-                if(vic not in processed):
-                    if(len([x for x in state.values() if 'class_inheritance' in x and 'CollectableBlock' in x['class_inheritance'] and str(x['img_name'][8:-4]) == vic]) == len([x for x in self._received_messages if 'Collect:' in x and vic in x])):
+                num_messages = len([x for x in receivedMessages if 'Collect:' in x and vic in x])
+                if num_messages > 0 and vic not in processed:
+                    num_saved = len([x for x in state.values() if 'location' in x and self._checkIfInVicinity(state, x['location']) and 'class_inheritance' in x and 'CollectableBlock' in x['class_inheritance'] and str(x['img_name'][8:-4]) == vic])
+                    if(num_saved == num_messages):
                         trustBeliefs[self._human_name]['willingness'] += 0.1
                     else:
                         trustBeliefs[self._human_name]['willingness'] -= 0.1
                     processed.append(vic)
 
-        # If human lied about a victim being in a specific room, decrease willingness significantly
-        if self._send_messages and 'not present in' in self._send_messages[-1]: 
-            trustBeliefs[self._human_name]['willingness'] -= 0.2
-            del self._send_messages[-1] #Maybe there's a better way to do this?
+        # If human was truthful/lied about a victim being in a specific room, increase/decrease willingness significantly
+        if self._send_messages: 
+            if 'not present in' in self._send_messages[-1]: 
+                trustBeliefs[self._human_name]['willingness'] -= 0.2
+                del self._send_messages[-1] #Maybe there's a better way to do this?
+            if 'because you told me' in self._send_messages[-1]:
+                trustBeliefs[self._human_name]['willingness'] += 0.2
+                del self._send_messages[-1]
+
+        trustBeliefs[self._human_name]['willingness'] = np.clip(trustBeliefs[self._human_name]['willingness'], -1, 1)
+        trustBeliefs[self._human_name]['competence'] = np.clip(trustBeliefs[self._human_name]['competence'], -1, 1)
 
         # # Update the trust value based on for example the received messages
         # for message in receivedMessages:
