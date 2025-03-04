@@ -1,3 +1,4 @@
-name;competence;willingness
-chris;0.5;-1.8500000000000008
+name;task;competence;willingness
+chris;rescue;-1.0;-1.0
 ;;;
+
