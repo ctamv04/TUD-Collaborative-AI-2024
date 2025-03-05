@@ -73,6 +73,8 @@ class BaselineAgent(ArtificialBrain):
         self._recent_vic = None
         self._received_messages = []
         self._moving = False
+        self._rooms_to_check = []
+        self._obstacle_removals_to_check = []
 
         self._timestamp_last_question = None
 
@@ -243,7 +245,9 @@ class BaselineAgent(ArtificialBrain):
                 unsearched_rooms = [room['room_name'] for room in state.values()
                                    if 'class_inheritance' in room
                                    and 'Door' in room['class_inheritance']
-                                   and room['room_name'] not in self._searched_rooms
+                                   and 
+                                    (room['room_name'] not in self._searched_rooms
+                                        or room['room_name'] in self._rooms_to_check)
                                    and room['room_name'] not in self._to_search]
                 # If all areas have been searched but the task is not finished, start searching areas again
                 if self._remainingZones and len(unsearched_rooms) == 0:
@@ -328,6 +332,32 @@ class BaselineAgent(ArtificialBrain):
                 if self._door['room_name'] in self._searched_rooms and self._goal_vic not in self._found_victims:
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
+
+                # Check if room should be verified by agent 
+                # TODO: should this check be at this point or earlier/later in this phase?
+                # TODO: do we need to change phase afterwards?
+                if self._door['room_name'] in self._rooms_to_check:
+                    visible_tiles_in_room = [obj for obj in state.values()
+                                     if obj['room_name'] == self._door['room_name'] and 'location' in obj and self._checkIfInVicinity(state, obj['location'])]
+
+                    # Check if the bot can see any unsearched victims or obstacles
+                    # TODO: and human hasnt said in a message that it found the victim
+                    has_unsearched_victims = any('class_inheritance' in obj and 'CollectableBlock' in obj['class_inheritance']
+                                                    for obj in visible_tiles)
+
+                    # if len(visible_tiles_in_room) < 6:
+                    # TODO: move deeper into room to be able to see the whole thing
+
+                    if not has_unsearched_victims:
+                        trustBeliefs[self._human_name]['search_room']['competence'] += 0.05
+                        trustBeliefs[self._human_name]['search_room']['willingness'] += 0.05
+                    else:
+                        # TODO: check messages if 
+                        trustBeliefs[self._human_name]['search_room']['competence'] -= 0.1
+                        trustBeliefs[self._human_name]['search_room']['willingness'] -= 0.05
+                    
+                    # Room has been checked
+                    self._rooms_to_check.remove(self._door['room_name'])
 
                 # Move to the next area to search
                 else:
@@ -855,88 +885,94 @@ class BaselineAgent(ArtificialBrain):
         # Check the content of the received messages
         for mssgs in receivedMessages.values():
             for msg in mssgs:
-                #If willingness too low, don't take what the human reports into consideration
-                if trustBeliefs[self._human_name]['rescue']['willingness'] >= -0.5:
-                    # If a received message involves team members searching areas, add these areas to the memory of areas that have been explored
-                    if msg.startswith("Search:"):
+                # If a received message involves team members searching areas, add these areas to the memory of areas that have been explored
+                if msg.startswith("Search:"):
+                    # TODO: for now, trust is part willingness and part competence
+                    # TODO: change weights if needed
+                    trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                    area = 'area ' + msg.split()[-1]
+                    if area not in self._searched_rooms:
+                        self._searched_rooms.append(area)
+                    if(trust_level < 0.0):
+                        self._rooms_to_check.append(area)
+                        # Plan the path to the relevant area
+                        self._phase = Phase.PLAN_PATH_TO_ROOM
+
+                # If a received message involves team members finding victims, add these victims and their locations to memory
+                if msg.startswith("Found:"):
+                    # Identify which victim and area it concerns
+                    if len(msg.split()) == 6:
+                        foundVic = ' '.join(msg.split()[1:4])
+                    else:
+                        foundVic = ' '.join(msg.split()[1:5])
+                    loc = 'area ' + msg.split()[-1]
+                    # Add the area to the memory of searched areas
+                    if loc not in self._searched_rooms:
+                        self._searched_rooms.append(loc)
+                    # Add the victim and its location to memory
+                    if foundVic not in self._found_victims:
+                        self._found_victims.append(foundVic)
+                        self._found_victim_logs[foundVic] = {'room': loc}
+                    if foundVic in self._found_victims and self._found_victim_logs[foundVic]['room'] != loc:
+                        self._found_victim_logs[foundVic] = {'room': loc}
+                    # Decide to help the human carry a found victim when the human's condition is 'weak'
+                    if condition == 'weak':
+                        self._rescue = 'together'
+                    # Add the found victim to the to do list when the human's condition is not 'weak'
+                    if 'mild' in foundVic and condition != 'weak':
+                        self._todo.append(foundVic)
+                # If a received message involves team members rescuing victims, add these victims and their locations to memory
+                if msg.startswith('Collect:'):
+                    # Identify which victim and area it concerns
+                    if len(msg.split()) == 6:
+                        collectVic = ' '.join(msg.split()[1:4])
+                    else:
+                        collectVic = ' '.join(msg.split()[1:5])
+                    loc = 'area ' + msg.split()[-1]
+                    # Add the area to the memory of searched areas
+                    if loc not in self._searched_rooms:
+                        self._searched_rooms.append(loc)
+                    # Add the victim and location to the memory of found victims
+                    if collectVic not in self._found_victims:
+                        self._found_victims.append(collectVic)
+                        self._found_victim_logs[collectVic] = {'room': loc}
+                    if collectVic in self._found_victims and self._found_victim_logs[collectVic]['room'] != loc:
+                        self._found_victim_logs[collectVic] = {'room': loc}
+                    # Add the victim to the memory of rescued victims when the human's condition is not weak
+                    if condition != 'weak' and collectVic not in self._collected_victims:
+                        self._collected_victims.append(collectVic)
+                    # Decide to help the human carry the victim together when the human's condition is weak
+                    if condition == 'weak':
+                        self._rescue = 'together'
+                # If a received message involves team members asking for help with removing obstacles, add their location to memory and come over
+                if msg.startswith('Remove:'):
+                    # Come over immediately when the agent is not carrying a victim
+                    if not self._carrying:
+                        # Identify at which location the human needs help
                         area = 'area ' + msg.split()[-1]
-                        if area not in self._searched_rooms:
-                            self._searched_rooms.append(area)
-                    # If a received message involves team members finding victims, add these victims and their locations to memory
-                    if msg.startswith("Found:"):
-                        # Identify which victim and area it concerns
-                        if len(msg.split()) == 6:
-                            foundVic = ' '.join(msg.split()[1:4])
-                        else:
-                            foundVic = ' '.join(msg.split()[1:5])
-                        loc = 'area ' + msg.split()[-1]
-                        # Add the area to the memory of searched areas
-                        if loc not in self._searched_rooms:
-                            self._searched_rooms.append(loc)
-                        # Add the victim and its location to memory
-                        if foundVic not in self._found_victims:
-                            self._found_victims.append(foundVic)
-                            self._found_victim_logs[foundVic] = {'room': loc}
-                        if foundVic in self._found_victims and self._found_victim_logs[foundVic]['room'] != loc:
-                            self._found_victim_logs[foundVic] = {'room': loc}
-                        # Decide to help the human carry a found victim when the human's condition is 'weak'
-                        if condition == 'weak':
-                            self._rescue = 'together'
-                        # Add the found victim to the to do list when the human's condition is not 'weak'
-                        if 'mild' in foundVic and condition != 'weak':
-                            self._todo.append(foundVic)
-                    # If a received message involves team members rescuing victims, add these victims and their locations to memory
-                    if msg.startswith('Collect:'):
-                        # Identify which victim and area it concerns
-                        if len(msg.split()) == 6:
-                            collectVic = ' '.join(msg.split()[1:4])
-                        else:
-                            collectVic = ' '.join(msg.split()[1:5])
-                        loc = 'area ' + msg.split()[-1]
-                        # Add the area to the memory of searched areas
-                        if loc not in self._searched_rooms:
-                            self._searched_rooms.append(loc)
-                        # Add the victim and location to the memory of found victims
-                        if collectVic not in self._found_victims:
-                            self._found_victims.append(collectVic)
-                            self._found_victim_logs[collectVic] = {'room': loc}
-                        if collectVic in self._found_victims and self._found_victim_logs[collectVic]['room'] != loc:
-                            self._found_victim_logs[collectVic] = {'room': loc}
-                        # Add the victim to the memory of rescued victims when the human's condition is not weak
-                        if condition != 'weak' and collectVic not in self._collected_victims:
-                            self._collected_victims.append(collectVic)
-                        # Decide to help the human carry the victim together when the human's condition is weak
-                        if condition == 'weak':
-                            self._rescue = 'together'
-                    # If a received message involves team members asking for help with removing obstacles, add their location to memory and come over
-                    if msg.startswith('Remove:'):
-                        # Come over immediately when the agent is not carrying a victim
-                        if not self._carrying:
-                            # Identify at which location the human needs help
-                            area = 'area ' + msg.split()[-1]
-                            self._door = state.get_room_doors(area)[0]
-                            self._doormat = state.get_room(area)[-1]['doormat']
-                            if area in self._searched_rooms:
-                                self._searched_rooms.remove(area)
-                            # Clear received messages (bug fix)
-                            self.received_messages = []
-                            self.received_messages_content = []
-                            self._moving = True
-                            self._remove = True
-                            if self._waiting and self._recent_vic:
-                                self._todo.append(self._recent_vic)
-                            self._waiting = False
-                            # Let the human know that the agent is coming over to help
-                            self._send_message(
-                                'Moving to ' + str(self._door['room_name']) + ' to help you remove an obstacle.',
-                                'RescueBot')
-                            # Plan the path to the relevant area
-                            self._phase = Phase.PLAN_PATH_TO_ROOM
-                        # Come over to help after dropping a victim that is currently being carried by the agent
-                        else:
-                            area = 'area ' + msg.split()[-1]
-                            self._send_message('Will come to ' + area + ' after dropping ' + self._goal_vic + '.',
-                                            'RescueBot')
+                        self._door = state.get_room_doors(area)[0]
+                        self._doormat = state.get_room(area)[-1]['doormat']
+                        if area in self._searched_rooms:
+                            self._searched_rooms.remove(area)
+                        # Clear received messages (bug fix)
+                        self.received_messages = []
+                        self.received_messages_content = []
+                        self._moving = True
+                        self._remove = True
+                        if self._waiting and self._recent_vic:
+                            self._todo.append(self._recent_vic)
+                        self._waiting = False
+                        # Let the human know that the agent is coming over to help
+                        self._send_message(
+                            'Moving to ' + str(self._door['room_name']) + ' to help you remove an obstacle.',
+                            'RescueBot')
+                        # Plan the path to the relevant area
+                        self._phase = Phase.PLAN_PATH_TO_ROOM
+                    # Come over to help after dropping a victim that is currently being carried by the agent
+                    else:
+                        area = 'area ' + msg.split()[-1]
+                        self._send_message('Will come to ' + area + ' after dropping ' + self._goal_vic + '.',
+                                        'RescueBot')
             # Store the current location of the human in memory
             if mssgs and mssgs[-1].split()[-1] in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13',
                                                    '14']:
@@ -996,7 +1032,21 @@ class BaselineAgent(ArtificialBrain):
             # If human accepts request, increase willingness slightly   
             if receivedMessages[-1].startswith('Rescue'):
                 trustBeliefs[self._human_name]['rescue']['competence'] += 0.05
-        
+            # If human said that it searched a room, add it to be checked by agent
+            if receivedMessages[-1].startswith('Search'):
+                area = 'area ' + receivedMessages[-1].split()[-1]
+                trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                if(trust_level < 0.5):
+                    self._rooms_to_check.append(area)
+                
+        if Phase.REMOVE_OBSTACLE_IF_NEEDED == self._phase:
+            for msg in receivedMessages:
+                if msg.startswith('Remove'):
+                    obstacle_location = msg.split()[-1]
+                    trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                    if(trust_level < 0.5):
+                        self._obstacle_removals_to_check.append(obstacle_location)
+
         # If victim successfully delivered while carrying together, increasee competence significantly
         if self._carrying_together and any(list(map(lambda info: 'location' in info and self._checkIfInVicinity(state, info['location']) and 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0, state.values()))):
             if state[self.agent_id]['location'] in dropzone_locs:
@@ -1019,6 +1069,10 @@ class BaselineAgent(ArtificialBrain):
 
         trustBeliefs[self._human_name]['rescue']['willingness'] = np.clip(trustBeliefs[self._human_name]['rescue']['willingness'], -1, 1)
         trustBeliefs[self._human_name]['rescue']['competence'] = np.clip(trustBeliefs[self._human_name]['rescue']['competence'], -1, 1)
+        trustBeliefs[self._human_name]['search_room']['competence'] = np.clip(trustBeliefs[self._human_name]['search_room']['competence'], -1, 1)
+        trustBeliefs[self._human_name]['search_room']['willingness'] = np.clip(trustBeliefs[self._human_name]['search_room']['willingness'], -1, 1)
+        trustBeliefs[self._human_name]['remove_obstacles']['willingness'] = np.clip(trustBeliefs[self._human_name]['remove_obstacles']['willingness'], -1, 1)
+        trustBeliefs[self._human_name]['remove_obstacles']['competence'] = np.clip(trustBeliefs[self._human_name]['remove_obstacles']['competence'], -1, 1)
 
         # Save current trust belief values so we can later use and retrieve them to add to a csv file with all the logged trust belief values
         with open(folder + '/beliefs/currentTrustBelief.csv', mode='w') as csv_file:
@@ -1026,6 +1080,10 @@ class BaselineAgent(ArtificialBrain):
             csv_writer.writerow(['name', 'task', 'competence', 'willingness'])
             csv_writer.writerow([self._human_name, 'rescue', trustBeliefs[self._human_name]['rescue']['competence'],
                                  trustBeliefs[self._human_name]['rescue']['willingness']])
+            csv_writer.writerow([self._human_name, 'search_room', trustBeliefs[self._human_name]['search_room']['competence'],
+                                 trustBeliefs[self._human_name]['search_room']['willingness']])
+            csv_writer.writerow([self._human_name, 'remove_obstacles', trustBeliefs[self._human_name]['remove_obstacles']['competence'],
+                                 trustBeliefs[self._human_name]['remove_obstacles']['willingness']])
 
         return trustBeliefs
 
