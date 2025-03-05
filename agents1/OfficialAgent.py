@@ -348,12 +348,12 @@ class BaselineAgent(ArtificialBrain):
                     # TODO: move deeper into room to be able to see the whole thing
 
                     if not has_unsearched_victims:
-                        trustBeliefs[self._human_name]['search_room']['competence'] += 0.05
-                        trustBeliefs[self._human_name]['search_room']['willingness'] += 0.05
+                        trustBeliefs[self._human_name]['search']['competence'] += 0.05
+                        trustBeliefs[self._human_name]['search']['willingness'] += 0.05
                     else:
                         # TODO: check messages if 
-                        trustBeliefs[self._human_name]['search_room']['competence'] -= 0.1
-                        trustBeliefs[self._human_name]['search_room']['willingness'] -= 0.05
+                        trustBeliefs[self._human_name]['search']['competence'] -= 0.1
+                        trustBeliefs[self._human_name]['search']['willingness'] -= 0.05
                     
                     # Room has been checked
                     self._rooms_to_check.remove(self._door['room_name'])
@@ -764,8 +764,8 @@ class BaselineAgent(ArtificialBrain):
             if Phase.FOLLOW_PATH_TO_VICTIM == self._phase:
                 # Start searching for other victims if the human already rescued the target victim
                 if self._goal_vic and self._goal_vic in self._collected_victims:
-                    trustBeliefs[self._human_name]['search_room']['competence'] += 0.5
-                    trustBeliefs[self._human_name]['search_room']['willingness'] += 0.5
+                    trustBeliefs[self._human_name]['search']['competence'] += 0.5
+                    trustBeliefs[self._human_name]['search']['willingness'] += 0.5
                     self._phase = Phase.FIND_NEXT_GOAL
 
                 # Move towards the location of the found victim
@@ -890,7 +890,7 @@ class BaselineAgent(ArtificialBrain):
                 if msg.startswith("Search:"):
                     # TODO: for now, trust is part willingness and part competence
                     # TODO: change weights if needed
-                    trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                    trust_level = (trustBeliefs[self._human_name]['search']['competence'] + trustBeliefs[self._human_name]['search']['willingness']) / 2
                     area = 'area ' + msg.split()[-1]
                     if area not in self._searched_rooms:
                         self._searched_rooms.append(area)
@@ -986,30 +986,30 @@ class BaselineAgent(ArtificialBrain):
         # Create a dictionary with trust values for all team members
         trustBeliefs = {}
         # Set a default starting trust value
+        default = 0.5
         trustfile_header = []
         trustfile_contents = []
         # Check if agent already collaborated with this human before, if yes: load the corresponding trust values, if no: initialize using default trust values
-
-        #TODO Separate trust for search & rescue
         with open(folder + '/beliefs/allTrustBeliefs.csv') as csvfile:
             reader = csv.reader(csvfile, delimiter=';', quotechar="'")
             for row in reader:
-                competence = 0.5
-                willingness = 0.5 
                 if trustfile_header == []:
                     trustfile_header = row
                     continue
                 # Retrieve trust values 
                 if row and row[0] == self._human_name:
                     name = row[0]
-                    task = row[1]
-                    competence = float(row[2])
-                    willingness = float(row[3])
-                    trustBeliefs.setdefault(self._human_name,{}).update({task: {'competence': competence, 'willingness': willingness}})
+                    competence = float(row[1])
+                    willingness = float(row[2])
+                    trustBeliefs[name] = {'competence': competence, 'willingness': willingness}
                 # Initialize default trust values
-                # if row and row[0] != self._human_name:
-                #     competence = default
-                #     willingness = default
+                if row and row[0] != self._human_name:
+                    competence = default
+                    willingness = default
+                    trustBeliefs[self._human_name] = {'search': {}, 'remove': {}, 'rescue': {}}
+                    trustBeliefs[self._human_name]['search'] = {'competence': competence, 'willingness': willingness}
+                    trustBeliefs[self._human_name]['remove'] = {'competence': competence, 'willingness': willingness}
+                    trustBeliefs[self._human_name]['rescue'] = {'competence': competence, 'willingness': willingness}
         return trustBeliefs
     
     def _checkIfInVicinity(self, state, location):
@@ -1036,7 +1036,7 @@ class BaselineAgent(ArtificialBrain):
             # If human said that it searched a room, add it to be checked by agent
             if receivedMessages[-1].startswith('Search'):
                 area = 'area ' + receivedMessages[-1].split()[-1]
-                trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                trust_level = (trustBeliefs[self._human_name]['search']['competence'] + trustBeliefs[self._human_name]['search']['willingness']) / 2
                 if(trust_level < 0.0):
                     self._rooms_to_check.append(area)
                 
@@ -1044,7 +1044,7 @@ class BaselineAgent(ArtificialBrain):
             for msg in receivedMessages:
                 if msg.startswith('Remove'):
                     obstacle_location = msg.split()[-1]
-                    trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
+                    trust_level = (trustBeliefs[self._human_name]['search']['competence'] + trustBeliefs[self._human_name]['search']['willingness']) / 2
                     if(trust_level < 0.5):
                         self._obstacle_removals_to_check.append(obstacle_location)
 
@@ -1070,10 +1070,10 @@ class BaselineAgent(ArtificialBrain):
 
         trustBeliefs[self._human_name]['rescue']['willingness'] = np.clip(trustBeliefs[self._human_name]['rescue']['willingness'], -1, 1)
         trustBeliefs[self._human_name]['rescue']['competence'] = np.clip(trustBeliefs[self._human_name]['rescue']['competence'], -1, 1)
-        trustBeliefs[self._human_name]['search_room']['competence'] = np.clip(trustBeliefs[self._human_name]['search_room']['competence'], -1, 1)
-        trustBeliefs[self._human_name]['search_room']['willingness'] = np.clip(trustBeliefs[self._human_name]['search_room']['willingness'], -1, 1)
-        trustBeliefs[self._human_name]['remove_obstacles']['willingness'] = np.clip(trustBeliefs[self._human_name]['remove_obstacles']['willingness'], -1, 1)
-        trustBeliefs[self._human_name]['remove_obstacles']['competence'] = np.clip(trustBeliefs[self._human_name]['remove_obstacles']['competence'], -1, 1)
+        trustBeliefs[self._human_name]['search']['competence'] = np.clip(trustBeliefs[self._human_name]['search']['competence'], -1, 1)
+        trustBeliefs[self._human_name]['search']['willingness'] = np.clip(trustBeliefs[self._human_name]['search']['willingness'], -1, 1)
+        trustBeliefs[self._human_name]['remove']['willingness'] = np.clip(trustBeliefs[self._human_name]['remove']['willingness'], -1, 1)
+        trustBeliefs[self._human_name]['remove']['competence'] = np.clip(trustBeliefs[self._human_name]['remove']['competence'], -1, 1)
 
         # Save current trust belief values so we can later use and retrieve them to add to a csv file with all the logged trust belief values
         with open(folder + '/beliefs/currentTrustBelief.csv', mode='w') as csv_file:
@@ -1081,10 +1081,10 @@ class BaselineAgent(ArtificialBrain):
             csv_writer.writerow(['name', 'task', 'competence', 'willingness'])
             csv_writer.writerow([self._human_name, 'rescue', trustBeliefs[self._human_name]['rescue']['competence'],
                                  trustBeliefs[self._human_name]['rescue']['willingness']])
-            csv_writer.writerow([self._human_name, 'search_room', trustBeliefs[self._human_name]['search_room']['competence'],
-                                 trustBeliefs[self._human_name]['search_room']['willingness']])
-            csv_writer.writerow([self._human_name, 'remove_obstacles', trustBeliefs[self._human_name]['remove_obstacles']['competence'],
-                                 trustBeliefs[self._human_name]['remove_obstacles']['willingness']])
+            csv_writer.writerow([self._human_name, 'search', trustBeliefs[self._human_name]['search']['competence'],
+                                 trustBeliefs[self._human_name]['search']['willingness']])
+            csv_writer.writerow([self._human_name, 'remove', trustBeliefs[self._human_name]['remove']['competence'],
+                                 trustBeliefs[self._human_name]['remove']['willingness']])
 
         return trustBeliefs
 
