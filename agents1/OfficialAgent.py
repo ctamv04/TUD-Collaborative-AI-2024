@@ -37,7 +37,6 @@ class Phase(enum.Enum):
     REMOVE_OBSTACLE_IF_NEEDED = 18,
     ENTER_ROOM = 19
 
-
 class BaselineAgent(ArtificialBrain):
     def __init__(self, slowdown, condition, name, folder):
         super().__init__(slowdown, condition, name, folder)
@@ -765,6 +764,8 @@ class BaselineAgent(ArtificialBrain):
             if Phase.FOLLOW_PATH_TO_VICTIM == self._phase:
                 # Start searching for other victims if the human already rescued the target victim
                 if self._goal_vic and self._goal_vic in self._collected_victims:
+                    trustBeliefs[self._human_name]['search_room']['competence'] += 0.5
+                    trustBeliefs[self._human_name]['search_room']['willingness'] += 0.5
                     self._phase = Phase.FIND_NEXT_GOAL
 
                 # Move towards the location of the found victim
@@ -1036,7 +1037,7 @@ class BaselineAgent(ArtificialBrain):
             if receivedMessages[-1].startswith('Search'):
                 area = 'area ' + receivedMessages[-1].split()[-1]
                 trust_level = (trustBeliefs[self._human_name]['search_room']['competence'] + trustBeliefs[self._human_name]['search_room']['willingness']) / 2
-                if(trust_level < 0.5):
+                if(trust_level < 0.0):
                     self._rooms_to_check.append(area)
                 
         if Phase.REMOVE_OBSTACLE_IF_NEEDED == self._phase:
