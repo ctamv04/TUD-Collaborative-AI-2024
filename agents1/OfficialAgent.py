@@ -1173,7 +1173,6 @@ class BaselineAgent(ArtificialBrain):
                     willingness = float(row[3])
                     confidence = int(row[4])
                     trustBeliefs.setdefault(self._human_name,{}).update({task: {'competence': competence, 'willingness': willingness, 'confidence': confidence}})
-                    trustBeliefs[name][task] = {'competence': competence, 'willingness': willingness}
                 # Initialize default trust values
                 if row and row[0] != self._human_name:
                     competence = default
