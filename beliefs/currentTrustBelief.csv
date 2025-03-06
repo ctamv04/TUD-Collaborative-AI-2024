@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 name;task;competence;willingness;confidence
 
 chris;search;0.5;0.5;1
@@ -6,3 +7,9 @@ chris;rescue;0.5;0.5;1
 
 chris;remove;0.5;0.5;1
 
+=======
+name;task;competence;willingness
+chris;rescue;0.5;0.5
+chris;search;0.5;0.5
+chris;remove;0.5;0.5
+>>>>>>> update-trust-beliefs
