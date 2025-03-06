@@ -1,5 +1,6 @@
 name;task;competence;willingness;confidence
-chris;search;0.5;0.5;0
-chris;rescue;0.5;0.5;0
+chris;search;0.5;0.5;1
+chris;rescue;0.5;0.5;1
+chris;remove;0.5;0.5;1
 ;;;
 
