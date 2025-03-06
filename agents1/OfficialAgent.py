@@ -92,7 +92,7 @@ class BaselineAgent(ArtificialBrain):
     
     def believe(self, trustBelief: float) -> float:
         after_sin = 0.5 * np.sin(0.5 * np.pi * trustBelief) + 0.5
-        return random.random() < n
+        return random.random() < after_sin
 
     def decide_on_actions(self, state):
         # Identify team members
