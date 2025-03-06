@@ -687,9 +687,10 @@ class BaselineAgent(ArtificialBrain):
                 # Add the area to the list of searched areas
                 if self._door['room_name'] not in self._searched_rooms:
                     self._searched_rooms.append(self._door['room_name'])
-                # Make a plan to rescue a found critically injured victim if the human decides so
+                # Make a plan to rescue a found critically injured victim if the human decides so if the human is known to not be a liar 
                 if self.received_messages_content and self.received_messages_content[
-                    -1] == 'Rescue' and 'critical' in self._recent_vic:
+                    -1] == 'Rescue' and 'critical' in self._recent_vic and trustBeliefs[self._human_name]['rescue']['willingness'] >= -0.5:
+
                     self._rescue = 'together'
                     self._answered = True
                     self._waiting = False
@@ -705,9 +706,9 @@ class BaselineAgent(ArtificialBrain):
                     self._goal_vic = self._recent_vic
                     self._recent_vic = None
                     self._phase = Phase.PLAN_PATH_TO_VICTIM
-                # Make a plan to rescue a found mildly injured victim together if the human decides so
+                # Make a plan to rescue a found mildly injured victim together if the human decides so if the human is known to not be a liar 
                 if self.received_messages_content and self.received_messages_content[
-                    -1] == 'Rescue together' and 'mild' in self._recent_vic:
+                    -1] == 'Rescue together' and 'mild' in self._recent_vic and trustBeliefs[self._human_name]['rescue']['willingness'] >= -0.5:
                     self._rescue = 'together'
                     self._answered = True
                     self._waiting = False
@@ -726,18 +727,43 @@ class BaselineAgent(ArtificialBrain):
                 # Make a plan to rescue the mildly injured victim alone if the human decides so, and communicate this to the human
                 if self.received_messages_content and self.received_messages_content[
                     -1] == 'Rescue alone' and 'mild' in self._recent_vic:
-                    self._send_message('Picking up ' + self._recent_vic + ' in ' + self._door['room_name'] + '.',
-                                      'RescueBot')
-                    self._rescue = 'alone'
-                    self._answered = True
-                    self._waiting = False
-                    self._goal_vic = self._recent_vic
-                    self._goal_loc = self._remaining[self._goal_vic]
-                    self._recent_vic = None
-                    self._phase = Phase.PLAN_PATH_TO_VICTIM
+                    # If the willingness is low wait for human instead of doing it alone
+                    if trustBeliefs[self._human_name]['rescue']['willingness'] >= -0.5
+                        self._send_message('Picking up ' + self._recent_vic + ' in ' + self._door['room_name'] + '.',
+                                        'RescueBot')
+                        self._rescue = 'alone'
+                        self._answered = True
+                        self._waiting = False
+                        self._goal_vic = self._recent_vic
+                        self._goal_loc = self._remaining[self._goal_vic]
+                        self._recent_vic = None
+                        self._phase = Phase.PLAN_PATH_TO_VICTIM
+                    else:
+                        self._rescue = 'together'
+                        self._answered = True
+                        self._waiting = False
+                        # Tell the human to come over and help carry the mildly injured victim
+                        if not state[{'is_human_agent': True}]:
+                            self._send_message('Please come to ' + str(self._door['room_name']) + ' to carry ' + str(
+                                self._recent_vic) + ' together.', 'RescueBot')
+                        # Tell the human to carry the mildly injured victim together
+                        if state[{'is_human_agent': True}]:
+                            self._send_message('Lets carry ' + str(
+                                self._recent_vic) + ' together! Please wait until I moved on top of ' + str(
+                                self._recent_vic) + '.', 'RescueBot')
+                        self._goal_vic = self._recent_vic
+                        self._recent_vic = None
+                        self._phase = Phase.PLAN_PATH_TO_VICTIM
                 # Continue searching other areas if the human decides so
                 # Also activate if human takes too long to respond (depending on their competence)
                 if self._timestamp_last_question and state['World']['nr_ticks'] > self._timestamp_last_question + 10 * (10 + (1 + trustBeliefs[self._human_name]['rescue']['competence']) * 15) or (self.received_messages_content and self.received_messages_content[-1]) == 'Continue':
+                    # If human doesn't help with critically injured victim then they are lazy
+                    if 'critical' in self._recent_vic:
+                        trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.1
+                        trustBeliefs[self._human_name]['rescue']['competence'] -= 0.1
+                    # If human doesn't help with mildly injured victim then they are not lying
+                    if 'mild' in self._recent_vic:
+                        trustBeliefs[self._human_name]['rescue']['willingness'] += 0.05
                     self._answered = True
                     self._timestamp_last_question = None
                     self._waiting = False
@@ -763,7 +789,7 @@ class BaselineAgent(ArtificialBrain):
 
             if Phase.FOLLOW_PATH_TO_VICTIM == self._phase:
                 # Start searching for other victims if the human already rescued the target victim
-                if self._goal_vic and self._goal_vic in self._collected_victims:
+                if self._goal_vic in self._collected_victims:
                     trustBeliefs[self._human_name]['search']['competence'] += 0.5
                     trustBeliefs[self._human_name]['search']['willingness'] += 0.5
                     self._phase = Phase.FIND_NEXT_GOAL
@@ -804,9 +830,18 @@ class BaselineAgent(ArtificialBrain):
                         objects.append(info)
                         # Remain idle when the human has not arrived at the location
                         if not self._human_name in info['name']:
-                            self._waiting = True
-                            self._moving = False
-                            return None, {}
+                            # If there is to much of a wait we assume the human won't come and they lied so willingness goes down
+                            if self._timestamp_last_question and state['World']['nr_ticks'] > self._timestamp_last_question + 10 * (10 + (1 + trustBeliefs[self._human_name]['rescue']['competence']) * 15):
+                                trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.3
+                                self._timestamp_last_question = None
+                                self._waiting = False
+                                self._rescue = None
+                                self._phase = Phase.FIND_NEXT_GOAL
+                                return None, {}
+                            else:
+                                self._waiting = True
+                                self._moving = False
+                                return None, {}
                 # Add the victim to the list of rescued victims when it has been picked up
                 if len(objects) == 0 and 'critical' in self._goal_vic or len(
                         objects) == 0 and 'mild' in self._goal_vic and self._rescue == 'together':
@@ -814,6 +849,9 @@ class BaselineAgent(ArtificialBrain):
                     if self._goal_vic not in self._collected_victims:
                         self._collected_victims.append(self._goal_vic)
                     self._carrying_together = True
+                    # The human comes so they were not lying so not lazy
+                    trustBeliefs[self._human_name]['rescue']['willingness'] += 0.2
+                    trustBeliefs[self._human_name]['rescue']['competence'] += 0.2
                     # Determine the next victim to rescue or search
                     self._phase = Phase.FIND_NEXT_GOAL
                 # When rescuing mildly injured victims alone, pick the victim up and plan the path to the drop zone
@@ -898,7 +936,7 @@ class BaselineAgent(ArtificialBrain):
                         self._rooms_to_check.append(area)
                         # Plan the path to the relevant area
                         self._phase = Phase.PLAN_PATH_TO_ROOM
-
+                
                 # If a received message involves team members finding victims, add these victims and their locations to memory
                 if msg.startswith("Found:"):
                     # Identify which victim and area it concerns
@@ -907,6 +945,10 @@ class BaselineAgent(ArtificialBrain):
                     else:
                         foundVic = ' '.join(msg.split()[1:5])
                     loc = 'area ' + msg.split()[-1]
+                    # If there is a mildly injured victim found we reduce the competence a bit, if the human then anounces they collected the victim it will be returned with a bonus
+                    # This is intended to filter for weak humans
+                    if 'mildly' in msg:
+                        trustBeliefs[self._human_name]['rescue']['competence'] -= 0.1
                     # Add the area to the memory of searched areas
                     if loc not in self._searched_rooms:
                         self._searched_rooms.append(loc)
@@ -930,6 +972,9 @@ class BaselineAgent(ArtificialBrain):
                     else:
                         collectVic = ' '.join(msg.split()[1:5])
                     loc = 'area ' + msg.split()[-1]
+                    # We refund a bit of competence if the human says they alone collected a mildli injured victim
+                    if 'mildly' in msg:
+                        trustBeliefs[self._human_name]['rescue']['competence'] += 0.15
                     # Add the area to the memory of searched areas
                     if loc not in self._searched_rooms:
                         self._searched_rooms.append(loc)
@@ -1067,6 +1112,11 @@ class BaselineAgent(ArtificialBrain):
                     else:
                         trustBeliefs[self._human_name]['rescue']['willingness'] += 0.1
                     processed.append(vic)
+
+        # If an agent is carying more than one victim at a time they have to be strong so we increse their competence significantly
+        for agent_info in state.values():
+            if 'location' in info and self._checkIfInVicinity(state, info['location']) and 'isAgent' in agent_info and agent_info['name'] in self._team_members and len(agent_info['is_carrying']) > 1:
+                trustBeliefs[agent_info['name']]['rescue']['competence'] += 0.3
 
         trustBeliefs[self._human_name]['rescue']['willingness'] = np.clip(trustBeliefs[self._human_name]['rescue']['willingness'], -1, 1)
         trustBeliefs[self._human_name]['rescue']['competence'] = np.clip(trustBeliefs[self._human_name]['rescue']['competence'], -1, 1)
