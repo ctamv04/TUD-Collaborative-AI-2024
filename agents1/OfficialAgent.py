@@ -73,7 +73,8 @@ class BaselineAgent(ArtificialBrain):
         self._received_messages = []
         self._moving = False
         self._obstacle_removals_to_check = []
-
+        self._door = {}
+        self._doormat = ()
         self._timestamp_last_question = None
         self._victim_info = {}
         self._first_run = True
@@ -313,7 +314,7 @@ class BaselineAgent(ArtificialBrain):
 
                 # If the goal victim's location is known, plan the route to the identified area
                 else:
-                    if self._door['room_name'] == 'area 1':
+                    if 'room_name' in self._door and self._door['room_name'] == 'area 1':
                         self._doormat = (3, 5)
                     doorLoc = self._doormat
 
@@ -346,7 +347,7 @@ class BaselineAgent(ArtificialBrain):
                     self._phase = Phase.FIND_NEXT_GOAL
 
                 # Check if the human already searched the previously identified area without finding the target victim
-                if self._door['room_name'] in self._searched_rooms and self._goal_vic not in self._found_victims:
+                if 'room_name' in self._door and self._door['room_name'] in self._searched_rooms and self._goal_vic not in self._found_victims:
                     # The human either lied that they found it, or lazy (started the task of searching without completing it)
                     trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
                     trustBeliefs[self._human_name]['search']['competence'] -= 0.05
