@@ -46,10 +46,17 @@ def output_logger(fld):
                 res = {trustfile_header[i] : row[i] for i in range(len(trustfile_header))}
                 trustfile_contents.append(res)
     # Retrieve the stored trust belief values
-    name = trustfile_contents[-1]['name']
-    task = trustfile_contents[-1]['task']
-    competence = trustfile_contents[-1]['competence']
-    willingness = trustfile_contents[-1]['willingness']
+    name2 = trustfile_contents[-1]['name']
+    task2 = trustfile_contents[-1]['task']
+    competence2 = trustfile_contents[-1]['competence']
+    willingness2 = trustfile_contents[-1]['willingness']
+    confidence2 = trustfile_contents[-1]['confidence']
+
+    name = trustfile_contents[-2]['name']
+    task = trustfile_contents[-2]['task']
+    competence = trustfile_contents[-2]['competence']
+    willingness = trustfile_contents[-2]['willingness']
+    confidence = trustfile_contents[-2]['confidence']
     # Retrieve the number of ticks to finish the task, score, and completeness
     no_ticks = action_contents[-1]['tick_nr']
     score = action_contents[-1]['score']
@@ -66,19 +73,27 @@ def output_logger(fld):
     with open(fld + '/beliefs/allTrustBeliefs.csv', mode='r') as csv_file:
 
         data = csv_file.readlines()
-        index = -1
+        index1 = -1
+        index2 = -1
         i = 0
         for line in data:
             fields = line.split(';')
-            if fields[0] == name and fields[1] == 'rescue':
-                index = i
-                break
+            if fields[0] == name and 
+                if fields[1] == 'rescue':
+                    index1 = i
+                if fields[1] == 'search':
+                    index2 = i
             i += 1
 
-        if index == -1:
+        if index2 == -1:
             data.append(name + ';' + task + ';' + competence + ';' + willingness + '\n')
         else:
             data[index] = name + ';' + task + ';' + competence + ';' + willingness + '\n'
+
+        if index1 == -1:
+            data.append(name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n')
+        else:
+            data[index] = name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n'
             
     with open(folder + '/beliefs/allTrustBeliefs.csv', mode='w') as csv_file:
         csv_file.writelines(data)    
