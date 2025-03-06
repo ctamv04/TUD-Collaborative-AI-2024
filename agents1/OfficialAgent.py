@@ -72,7 +72,6 @@ class BaselineAgent(ArtificialBrain):
         self._recent_vic = None
         self._received_messages = []
         self._moving = False
-        self._obstacle_removals_to_check = []
         self._door = {}
         self._doormat = ()
         self._timestamp_last_question = None
@@ -1206,14 +1205,6 @@ class BaselineAgent(ArtificialBrain):
             if receivedMessages[-1].startswith('Rescue'):
                 trustBeliefs[self._human_name]['rescue']['competence'] += 0.05
                 
-        if Phase.REMOVE_OBSTACLE_IF_NEEDED == self._phase:
-            for msg in receivedMessages:
-                if msg.startswith('Remove'):
-                    obstacle_location = msg.split()[-1]
-                    trust_level = (trustBeliefs[self._human_name]['search']['competence'] + trustBeliefs[self._human_name]['search']['willingness']) / 2
-                    if(trust_level < 0.5):
-                        self._obstacle_removals_to_check.append(obstacle_location)
-
         # If victim successfully delivered while carrying together, increase competence significantly
         if self._carrying_together and any(['is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0 for info in vicinity_blocks]):
             if state[self.agent_id]['location'] in dropzone_locs:
