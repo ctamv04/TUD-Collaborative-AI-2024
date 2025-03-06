@@ -140,15 +140,14 @@ class BaselineAgent(ArtificialBrain):
 
         # Check whether victims are currently being carried together by human and agent 
         for info in state.values():
-            victim = info['is_carrying'][0]
             if 'is_human_agent' in info and self._human_name in info['name'] and len(
-                    info['is_carrying']) > 0 and 'critical' in victim['obj_id'] or \
+                    info['is_carrying']) > 0 and 'critical' in info['is_carrying'][0]['obj_id'] or \
                     'is_human_agent' in info and self._human_name in info['name'] and len(
-                info['is_carrying']) > 0 and 'mild' in victim['obj_id'] and \
+                info['is_carrying']) > 0 and 'mild' in info['is_carrying'][0]['obj_id'] and \
                     self._rescue == 'together' and not self._moving:
                 # If victim is being carried, add to collected victims memory
                 if info['is_carrying'][0]['img_name'][8:-4] not in self._collected_victims:
-                    self._collected_victims.append(victim['img_name'][8:-4])
+                    self._collected_victims.append(info['is_carrying'][0]['img_name'][8:-4])
                 self._carrying_together = True
             if 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0:
                 self._carrying_together = False
@@ -354,36 +353,7 @@ class BaselineAgent(ArtificialBrain):
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
 
-                # Check if room should be verified by agent 
-                # TODO: should this check be at this point or earlier/later in this phase?
-                # TODO: do we need to change phase afterwards?
-                if self._door['room_name'] in self._rooms_to_check:
-                    visible_tiles_in_room = [obj for obj in state.values()
-                                     if obj['room_name'] == self._door['room_name'] and 'location' in obj and self._checkIfInVicinity(state, obj['location'])]
 
-                    # Check if the bot can see any unsearched victims or obstacles
-                    # TODO: and human hasnt said in a message that it found the victim
-                    has_unsearched_victims = any('class_inheritance' in obj and 'CollectableBlock' in obj['class_inheritance']
-                                                    for obj in visible_tiles)
-
-                    # if len(visible_tiles_in_room) < 6:
-                    # TODO: move deeper into room to be able to see the whole thing
-
-                    if not has_unsearched_victims:
-                        trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] + 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
-                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] + 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
-                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
-                    else:
-                        # TODO: check messages if 
-                        trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] - 0.1) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
-                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] - 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
-                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
-                    
-                    # Room has been checked
-                    self._rooms_to_check.remove(self._door['room_name'])
-
-                # Move to the next area to search
-                else:
                     # Update the state tracker with the current state
                     self._state_tracker.update(state)
 
@@ -477,7 +447,7 @@ class BaselineAgent(ArtificialBrain):
                             if state[{'is_human_agent': True}]:
                                 self._send_message('Lets remove rock blocking ' + str(self._door['room_name']) + '!',
                                                   'RescueBot')
-                            trustBeliefs[self._human_name]['remove']['willingness'] += 0.2
+                                trustBeliefs[self._human_name]['remove']['willingness'] += 0.2
                                 return None, {}
                         # Remain idle untill the human communicates what to do with the identified obstacle 
                         else:
