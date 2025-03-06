@@ -436,7 +436,7 @@ class BaselineAgent(ArtificialBrain):
                         # Wait for the human to help removing the obstacle and remove the obstacle together
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove' or self._remove:
-                            if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                            if self.believe(trustBeliefs[self._human_name]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_name]['remove']['competence']) or not self.believe(trustBeliefs[self._human_name]['remove']['competence'])):
                                 if not self._remove:
                                     self._answered = True
                             # Tell the human to come over and be idle untill human arrives
@@ -530,7 +530,7 @@ class BaselineAgent(ArtificialBrain):
                         # Remove the obstacle alone if the human decides so
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove alone' and not self._remove:
-                            if not self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and self.believe(trustBeliefs[self._human_agent]['remove']['competence']):
+                            if not self.believe(trustBeliefs[self._human_name]['remove']['willingness']) and self.believe(trustBeliefs[self._human_name]['remove']['competence']):
                                 if not self._remove:
                                     self._answered = True
                                 # Tell the human to come over and be idle untill human arrives
@@ -555,7 +555,7 @@ class BaselineAgent(ArtificialBrain):
                         # Remove the obstacle together if the human decides so
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove together' or self._remove:
-                            if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                            if self.believe(trustBeliefs[self._human_name]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_name]['remove']['competence']) or not self.believe(trustBeliefs[self._human_name]['remove']['competence'])):
                                 if not self._remove:
                                     self._answered = True
                                 # Tell the human to come over and be idle untill human arrives
@@ -1051,7 +1051,7 @@ class BaselineAgent(ArtificialBrain):
                 
                 # If a received message involves team members finding victims, add these victims and their locations to memory
                 if msg.startswith("Found:"):
-                    if self.believe(trustBeliefs[self._human_agent]['search']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['search']['competence']) or not self.believe(trustBeliefs[self._human_agent]['search']['competence'])):
+                    if self.believe(trustBeliefs[self._human_name]['search']['willingness']) and (self.believe(trustBeliefs[self._human_name]['search']['competence']) or not self.believe(trustBeliefs[self._human_name]['search']['competence'])):
                         # Identify which victim and area it concerns
                         if len(msg.split()) == 6:
                             foundVic = ' '.join(msg.split()[1:4])
@@ -1109,7 +1109,7 @@ class BaselineAgent(ArtificialBrain):
                         self._rescue = 'together'
                 # If a received message involves team members asking for help with removing obstacles, add their location to memory and come over
                 if msg.startswith('Remove:'):
-                    if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                    if self.believe(trustBeliefs[self._human_name]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_name]['remove']['competence']) or not self.believe(trustBeliefs[self._human_name]['remove']['competence'])):
                         # Come over immediately when the agent is not carrying a victim
                         if not self._carrying:
                             # Identify at which location the human needs help
