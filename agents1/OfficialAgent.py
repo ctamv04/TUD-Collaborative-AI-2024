@@ -90,6 +90,10 @@ class BaselineAgent(ArtificialBrain):
     def filter_observations(self, state):
         # Filtering of the world state before deciding on an action 
         return state
+    
+    def believe(self, trustBelief: float) -> float:
+        after_sin = 0.5 * np.sin(0.5 * np.pi * trustBelief) + 0.5
+        return random.random() < n
 
     def decide_on_actions(self, state):
         # Identify team members
@@ -444,8 +448,9 @@ class BaselineAgent(ArtificialBrain):
                         # Wait for the human to help removing the obstacle and remove the obstacle together
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove' or self._remove:
-                            if not self._remove:
-                                self._answered = True
+                            if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                                if not self._remove:
+                                    self._answered = True
                             # Tell the human to come over and be idle untill human arrives
                             if not state[{'is_human_agent': True}]:
                                 self._send_message('Please come to ' + str(self._door['room_name']) + ' to remove rock.',
@@ -520,29 +525,51 @@ class BaselineAgent(ArtificialBrain):
                         # Remove the obstacle alone if the human decides so
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove alone' and not self._remove:
-                            self._answered = True
-                            self._waiting = False
-                            self._send_message('Removing stones blocking ' + str(self._door['room_name']) + '.',
-                                              'RescueBot')
-                            self._phase = Phase.ENTER_ROOM
-                            self._remove = False
-                            return RemoveObject.__name__, {'object_id': info['obj_id']}
+                            if not self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and self.believe(trustBeliefs[self._human_agent]['remove']['competence']):
+                                if not self._remove:
+                                    self._answered = True
+                                # Tell the human to come over and be idle untill human arrives
+                                if not state[{'is_human_agent': True}]:
+                                    self._send_message(
+                                        'Please come to ' + str(self._door['room_name']) + ' to remove stones together.',
+                                        'RescueBot')
+                                    return None, {}
+                                # Tell the human to remove the obstacle when he/she arrives
+                                if state[{'is_human_agent': True}]:
+                                    self._send_message('Lets remove stones blocking ' + str(self._door['room_name']) + '!',
+                                                    'RescueBot')
+                                    return None, {}
+                            else:
+                                self._answered = True
+                                self._waiting = False
+                                self._send_message('Removing stones blocking ' + str(self._door['room_name']) + '.',
+                                                'RescueBot')
+                                self._phase = Phase.ENTER_ROOM
+                                self._remove = False
+                                return RemoveObject.__name__, {'object_id': info['obj_id']}
                         # Remove the obstacle together if the human decides so
                         if self.received_messages_content and self.received_messages_content[
                             -1] == 'Remove together' or self._remove:
-                            if not self._remove:
+                            if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                                if not self._remove:
+                                    self._answered = True
+                                # Tell the human to come over and be idle untill human arrives
+                                if not state[{'is_human_agent': True}]:
+                                    self._send_message(
+                                        'Please come to ' + str(self._door['room_name']) + ' to remove stones together.',
+                                        'RescueBot')
+                                    return None, {}
+                                # Tell the human to remove the obstacle when he/she arrives
+                                if state[{'is_human_agent': True}]:
+                                    self._send_message('Lets remove stones blocking ' + str(self._door['room_name']) + '!',
+                                                    'RescueBot')
+                                    return None, {}
+                            else:
                                 self._answered = True
-                            # Tell the human to come over and be idle untill human arrives
-                            if not state[{'is_human_agent': True}]:
-                                self._send_message(
-                                    'Please come to ' + str(self._door['room_name']) + ' to remove stones together.',
-                                    'RescueBot')
-                                return None, {}
-                            # Tell the human to remove the obstacle when he/she arrives
-                            if state[{'is_human_agent': True}]:
-                                self._send_message('Lets remove stones blocking ' + str(self._door['room_name']) + '!',
-                                                  'RescueBot')
-                                return None, {}
+                                self._waiting = False
+                                # Add area to the to do list
+                                self._to_search.append(self._door['room_name'])
+                                self._phase = Phase.FIND_NEXT_GOAL
                         # Remain idle until the human communicates what to do with the identified obstacle
                         else:
                             return None, {}
@@ -962,32 +989,33 @@ class BaselineAgent(ArtificialBrain):
                 
                 # If a received message involves team members finding victims, add these victims and their locations to memory
                 if msg.startswith("Found:"):
-                    # Identify which victim and area it concerns
-                    if len(msg.split()) == 6:
-                        foundVic = ' '.join(msg.split()[1:4])
-                    else:
-                        foundVic = ' '.join(msg.split()[1:5])
-                    loc = 'area ' + msg.split()[-1]
-                    # If there is a mildly injured victim found we reduce the competence a bit, if the human then anounces they collected the victim it will be returned with a bonus
-                    # This is intended to filter for weak humans
-                    if 'mildly' in msg:
-                        trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] - 0.1) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
-                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
-                    # Add the area to the memory of searched areas
-                    if loc not in self._searched_rooms:
-                        self._searched_rooms.append(loc)
-                    # Add the victim and its location to memory
-                    if foundVic not in self._found_victims:
-                        self._found_victims.append(foundVic)
-                        self._found_victim_logs[foundVic] = {'room': loc}
-                    if foundVic in self._found_victims and self._found_victim_logs[foundVic]['room'] != loc:
-                        self._found_victim_logs[foundVic] = {'room': loc}
-                    # Decide to help the human carry a found victim when the human's condition is 'weak'
-                    if condition == 'weak':
-                        self._rescue = 'together'
-                    # Add the found victim to the to do list when the human's condition is not 'weak'
-                    if 'mild' in foundVic and condition != 'weak':
-                        self._todo.append(foundVic)
+                    if self.believe(trustBeliefs[self._human_agent]['search']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['search']['competence']) or not self.believe(trustBeliefs[self._human_agent]['search']['competence'])):
+                        # Identify which victim and area it concerns
+                        if len(msg.split()) == 6:
+                            foundVic = ' '.join(msg.split()[1:4])
+                        else:
+                            foundVic = ' '.join(msg.split()[1:5])
+                        loc = 'area ' + msg.split()[-1]
+                        # If there is a mildly injured victim found we reduce the competence a bit, if the human then anounces they collected the victim it will be returned with a bonus
+                        # This is intended to filter for weak humans
+                        if 'mildly' in msg:
+                            trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] - 0.1) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['rescue']['confidence'] += 1
+                        # Add the area to the memory of searched areas
+                        if loc not in self._searched_rooms:
+                            self._searched_rooms.append(loc)
+                        # Add the victim and its location to memory
+                        if foundVic not in self._found_victims:
+                            self._found_victims.append(foundVic)
+                            self._found_victim_logs[foundVic] = {'room': loc}
+                        if foundVic in self._found_victims and self._found_victim_logs[foundVic]['room'] != loc:
+                            self._found_victim_logs[foundVic] = {'room': loc}
+                        # Decide to help the human carry a found victim when the human's condition is 'weak'
+                        if condition == 'weak':
+                            self._rescue = 'together'
+                        # Add the found victim to the to do list when the human's condition is not 'weak'
+                        if 'mild' in foundVic and condition != 'weak':
+                            self._todo.append(foundVic)
                 # If a received message involves team members rescuing victims, add these victims and their locations to memory
                 if msg.startswith('Collect:'):
                     # Identify which victim and area it concerns
@@ -1017,33 +1045,34 @@ class BaselineAgent(ArtificialBrain):
                         self._rescue = 'together'
                 # If a received message involves team members asking for help with removing obstacles, add their location to memory and come over
                 if msg.startswith('Remove:'):
-                    # Come over immediately when the agent is not carrying a victim
-                    if not self._carrying:
-                        # Identify at which location the human needs help
-                        area = 'area ' + msg.split()[-1]
-                        self._door = state.get_room_doors(area)[0]
-                        self._doormat = state.get_room(area)[-1]['doormat']
-                        if area in self._searched_rooms:
-                            self._searched_rooms.remove(area)
-                        # Clear received messages (bug fix)
-                        self.received_messages = []
-                        self.received_messages_content = []
-                        self._moving = True
-                        self._remove = True
-                        if self._waiting and self._recent_vic:
-                            self._todo.append(self._recent_vic)
-                        self._waiting = False
-                        # Let the human know that the agent is coming over to help
-                        self._send_message(
-                            'Moving to ' + str(self._door['room_name']) + ' to help you remove an obstacle.',
-                            'RescueBot')
-                        # Plan the path to the relevant area
-                        self._phase = Phase.PLAN_PATH_TO_ROOM
-                    # Come over to help after dropping a victim that is currently being carried by the agent
-                    else:
-                        area = 'area ' + msg.split()[-1]
-                        self._send_message('Will come to ' + area + ' after dropping ' + self._goal_vic + '.',
-                                        'RescueBot')
+                    if self.believe(trustBeliefs[self._human_agent]['remove']['willingness']) and (self.believe(trustBeliefs[self._human_agent]['remove']['competence']) or not self.believe(trustBeliefs[self._human_agent]['remove']['competence'])):
+                        # Come over immediately when the agent is not carrying a victim
+                        if not self._carrying:
+                            # Identify at which location the human needs help
+                            area = 'area ' + msg.split()[-1]
+                            self._door = state.get_room_doors(area)[0]
+                            self._doormat = state.get_room(area)[-1]['doormat']
+                            if area in self._searched_rooms:
+                                self._searched_rooms.remove(area)
+                            # Clear received messages (bug fix)
+                            self.received_messages = []
+                            self.received_messages_content = []
+                            self._moving = True
+                            self._remove = True
+                            if self._waiting and self._recent_vic:
+                                self._todo.append(self._recent_vic)
+                            self._waiting = False
+                            # Let the human know that the agent is coming over to help
+                            self._send_message(
+                                'Moving to ' + str(self._door['room_name']) + ' to help you remove an obstacle.',
+                                'RescueBot')
+                            # Plan the path to the relevant area
+                            self._phase = Phase.PLAN_PATH_TO_ROOM
+                        # Come over to help after dropping a victim that is currently being carried by the agent
+                        else:
+                            area = 'area ' + msg.split()[-1]
+                            self._send_message('Will come to ' + area + ' after dropping ' + self._goal_vic + '.',
+                                            'RescueBot')
             # Store the current location of the human in memory
             if mssgs and mssgs[-1].split()[-1] in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13',
                                                    '14']:
