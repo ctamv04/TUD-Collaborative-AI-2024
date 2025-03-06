@@ -353,7 +353,8 @@ class BaselineAgent(ArtificialBrain):
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
 
-
+                # Move to the next area to search
+                else:
                     # Update the state tracker with the current state
                     self._state_tracker.update(state)
 
