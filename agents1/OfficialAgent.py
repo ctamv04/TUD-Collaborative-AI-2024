@@ -327,11 +327,13 @@ class BaselineAgent(ArtificialBrain):
                 if self._goal_vic and self._goal_vic in self._collected_victims:
                     # If human rescued a mild victim on their own, slightly increase competence and willingness of rescue task
                     if 'mild' in self._goal_vic:
-                        trustBeliefs[self._human_name]['rescue']['competence'] += 0.05
-                        trustBeliefs[self._human_name]['rescue']['willingness'] += 0.05
+                        trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] + 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] + 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     # Else the human couldn't have rescued the critical victim, so they lied
                     else:
-                        trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.2
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     # Reset current door and switch to finding the next goal
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
@@ -341,15 +343,17 @@ class BaselineAgent(ArtificialBrain):
                         and self._goal_vic in self._found_victims \
                         and self._door['room_name'] != self._found_victim_logs[self._goal_vic]['room']:
                     # Then the human must have lied when saying that they found the victim
-                    trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
+                    trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                    trustBeliefs[self._human_name]['search']['confidence'] += 1
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
 
                 # Check if the human already searched the previously identified area without finding the target victim
                 if 'room_name' in self._door and self._door['room_name'] in self._searched_rooms and self._goal_vic not in self._found_victims:
                     # The human either lied that they found it, or lazy (started the task of searching without completing it)
-                    trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
-                    trustBeliefs[self._human_name]['search']['competence'] -= 0.05
+                    trustBeliefs[self._human_name]['search']['competence'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['competence'] - 0.05) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                    trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                    trustBeliefs[self._human_name]['search']['confidence'] += 1
                     self._current_door = None
                     self._phase = Phase.FIND_NEXT_GOAL
 
@@ -410,11 +414,13 @@ class BaselineAgent(ArtificialBrain):
                         'obj_id']:
                         # If human said to remove this rock, willingness up for being willing to communicate
                         if 'Remove:' in self.received_messages_content and self._door['room_name'] in self.received_messages_content:
-                            trustBeliefs[self._human_name]['remove']['willingness'] += 0.01
+                            trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] + 0.05) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
                         if self._door['room_name'] in self._searched_rooms:
-                            trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
-                            trustBeliefs[self._human_name]['search']['competence'] -= 0.1
+                            trustBeliefs[self._human_name]['search']['competence'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['competence'] - 0.1) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['confidence'] += 1
                         objects.append(info)
                         # Communicate which obstacle is blocking the entrance
                         if self._answered == False and not self._remove and not self._waiting:
@@ -448,7 +454,8 @@ class BaselineAgent(ArtificialBrain):
                             if state[{'is_human_agent': True}]:
                                 self._send_message('Lets remove rock blocking ' + str(self._door['room_name']) + '!',
                                                   'RescueBot')
-                                trustBeliefs[self._human_name]['remove']['willingness'] += 0.2
+                                trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] + 0.2) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                                trustBeliefs[self._human_name]['remove']['confidence'] += 1
                                 return None, {}
                         # Remain idle untill the human communicates what to do with the identified obstacle 
                         else:
@@ -461,8 +468,9 @@ class BaselineAgent(ArtificialBrain):
                             trustBeliefs[self._human_name]['remove']['willingness'] += 0.01
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
                         if self._door['room_name'] in self._searched_rooms:
-                            trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
-                            trustBeliefs[self._human_name]['search']['competence'] -= 0.1
+                            trustBeliefs[self._human_name]['search']['competence'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['competence'] - 0.1) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['confidence'] += 1
                         objects.append(info)
                         # Communicate which obstacle is blocking the entrance
                         if self._answered == False and not self._remove and not self._waiting:
@@ -502,13 +510,15 @@ class BaselineAgent(ArtificialBrain):
                             info['obj_id']:
                         # If human said to remove this rock, willingness up for being willing to communicate
                         if 'Remove:' in self.received_messages_content and self._door['room_name'] in self.received_messages_content:
-                            trustBeliefs[self._human_name]['remove']['willingness'] += 0.05
                             # Penalize competence for not being able to remove the stone by themselves
-                            trustBeliefs[self._human_name]['remove']['competence'] -= 0.1
+                            trustBeliefs[self._human_name]['remove']['competence'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['competence'] - 0.1) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] + 0.05) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
                         if self._door['room_name'] in self._searched_rooms:
-                            trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
-                            trustBeliefs[self._human_name]['search']['competence'] -= 0.1
+                            trustBeliefs[self._human_name]['search']['competence'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['competence'] - 0.1) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['confidence'] += 1
                         objects.append(info)
                         # Communicate which obstacle is blocking the entrance
                         if self._answered == False and not self._remove and not self._waiting:
@@ -571,7 +581,8 @@ class BaselineAgent(ArtificialBrain):
                                     return None, {}
                             else:
                                 # Then the human didn't help the robot
-                                trustBeliefs[self._human_name]['remove']['willingness'] -= 0.2
+                                trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                                trustBeliefs[self._human_name]['remove']['confidence'] += 1
                                 self._answered = True
                                 self._waiting = False
                                 self._send_message('Removing stones blocking ' + str(self._door['room_name']) + '.',
@@ -583,8 +594,9 @@ class BaselineAgent(ArtificialBrain):
                             if self.received_messages_content and self.received_messages_content[
                                 -1] == 'Remove together' or self._remove:
                                 # Then the human didn't remove it by themselves
-                                trustBeliefs[self._human_name]['remove']['competence'] -= 0.2
-                                trustBeliefs[self._human_name]['remove']['willingness'] -= 0.1
+                                trustBeliefs[self._human_name]['remove']['competence'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['competence'] - 0.2) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                                trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] - 0.1) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                                trustBeliefs[self._human_name]['remove']['confidence'] += 1
                                 if not self._remove:
                                     self._answered = True
                                     self._waiting = False
@@ -598,7 +610,8 @@ class BaselineAgent(ArtificialBrain):
                 if len(objects) == 0:
                     # If the human said there was an obstacle here, they lied
                     if 'Remove:' in self.received_messages_content and self._door['room_name'] in self.received_messages_content:
-                        trustBeliefs[self._human_name]['remove']['willingness'] -= 0.5
+                        trustBeliefs[self._human_name]['remove']['willingness'] = ((trustBeliefs[self._human_name]['remove']['confidence'] + 1) * trustBeliefs[self._human_name]['remove']['willingness'] - 0.5) / (trustBeliefs[self._human_name]['remove']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['remove']['confidence'] += 1
                     self._answered = False
                     self._remove = False
                     self._waiting = False
@@ -682,12 +695,14 @@ class BaselineAgent(ArtificialBrain):
                                     # If human was truthful about a victim being in a specific room, increase willingness significantly
                                     trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] + 0.2) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
                                     trustBeliefs[self._human_name]['rescue']['confidence'] += 1
-                                    trustBeliefs[self._human_name]['search']['willingness'] += 0.2
+                                    trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] + 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                                    trustBeliefs[self._human_name]['search']['confidence'] += 1
 
                                     # Add the area to the list with searched areas
                                     if self._door['room_name'] not in self._searched_rooms:
                                         # Then the human found the victim without saying that it will search that room, so it lied
-                                        trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
+                                        trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                                        trustBeliefs[self._human_name]['search']['confidence'] += 1
                                         self._searched_rooms.append(self._door['room_name'])
                                     # Do not continue searching the rest of the area but start planning to rescue the victim
                                     self._phase = Phase.FIND_NEXT_GOAL
@@ -745,11 +760,14 @@ class BaselineAgent(ArtificialBrain):
                     if self._goal_vic in self._collected_victims:
                         # The human couldn't have carried it themselves, so that means the victim was not there in first place
                         if 'critical' in self._goal_vic:
-                            trustBeliefs[self._human_name]['search']['willingness'] -= 0.2
+                            trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                            trustBeliefs[self._human_name]['search']['confidence'] += 1
                     # The human either collected the victim and didn't report, or they lied about finding the victim
                     else:
-                        trustBeliefs[self._human_name]['search']['willingness'] -= 0.05
-                        trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.05
+                        trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] - 0.05) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['search']['confidence'] += 1
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] - 0.05) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     # Remove the victim location from memory
                     self._found_victim_logs.pop(self._goal_vic, None)
                     self._found_victims.remove(self._goal_vic)
@@ -773,16 +791,19 @@ class BaselineAgent(ArtificialBrain):
                             self._recent_vic) + ' together.', 'RescueBot')
                         self._timestamp_last_question = state['World']['nr_ticks']
                         # The human is not there, so it might be lazy, but he didn't lie when searching
-                        trustBeliefs[self._human_name]['search']['willingness'] += 0.1
-                        trustBeliefs[self._human_name]['search']['competence'] -= 0.1
+                        trustBeliefs[self._human_name]['search']['competence'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['competence'] - 0.1) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] + 0.1) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['search']['confidence'] += 1
                     # Tell the human to carry the critically injured victim together
                     if state[{'is_human_agent': True}]:
                         self._send_message('Lets carry ' + str(
                             self._recent_vic) + ' together! Please wait until I moved on top of ' + str(
                             self._recent_vic) + '.', 'RescueBot')
                         # The human is there and the victim is there and is critical, then the human didn't lie
-                        trustBeliefs[self._human_name]['search']['willingness'] += 0.2
-                        trustBeliefs[self._human_name]['rescue']['willingness'] += 0.2
+                        trustBeliefs[self._human_name]['search']['willingness'] = ((trustBeliefs[self._human_name]['search']['confidence'] + 1) * trustBeliefs[self._human_name]['search']['willingness'] + 0.2) / (trustBeliefs[self._human_name]['search']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['search']['confidence'] += 1
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] + 0.2) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     self._goal_vic = self._recent_vic
                     self._recent_vic = None
                     self._phase = Phase.PLAN_PATH_TO_VICTIM
@@ -793,7 +814,8 @@ class BaselineAgent(ArtificialBrain):
                     self._answered = True
                     self._waiting = False
                     # Rescuing a mild victim together means lower competence
-                    trustBeliefs[self._human_name]['rescue']['competence'] -= 0.2
+                    trustBeliefs[self._human_name]['rescue']['competence'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['competence'] - 0.2) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                    trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     # Tell the human to come over and help carry the mildly injured victim
                     if not state[{'is_human_agent': True}]:
                         self._send_message('Please come to ' + str(self._door['room_name']) + ' to carry ' + str(
@@ -940,7 +962,8 @@ class BaselineAgent(ArtificialBrain):
                         self._collected_victims.append(self._goal_vic)
                     # If the victim has been reported as collected by the human this means the human lied
                     else:
-                        trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.5
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] - 0.5) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
 
                     self._carrying_together = True
                     # The human comes so the willingness goes up
@@ -956,7 +979,8 @@ class BaselineAgent(ArtificialBrain):
                         self._collected_victims.append(self._goal_vic)
                     # If the victim has been reported as collected by the human this means the human lied
                     else:
-                        trustBeliefs[self._human_name]['rescue']['willingness'] -= 0.5
+                        trustBeliefs[self._human_name]['rescue']['willingness'] = ((trustBeliefs[self._human_name]['rescue']['confidence'] + 1) * trustBeliefs[self._human_name]['rescue']['willingness'] - 0.5) / (trustBeliefs[self._human_name]['rescue']['confidence'] + 1)
+                        trustBeliefs[self._human_name]['rescue']['confidence'] += 1
                     self._carrying = True
                     return CarryObject.__name__, {'object_id': self._found_victim_logs[self._goal_vic]['obj_id'],
                                                   'human_name': self._human_name}
