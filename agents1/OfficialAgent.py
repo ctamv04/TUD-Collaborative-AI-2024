@@ -461,7 +461,7 @@ class BaselineAgent(ArtificialBrain):
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'rock' in info[
                         'obj_id']:
                         # If human said to remove this rock, willingness up for being willing to communicate
-                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg.content for mssg in self._received_messages]):
+                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
@@ -524,7 +524,7 @@ class BaselineAgent(ArtificialBrain):
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'tree' in info[
                         'obj_id']:
                         # If human said to remove this rock, willingness up for being willing to communicate
-                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg.content for mssg in self._received_messages]):
+                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
@@ -572,7 +572,7 @@ class BaselineAgent(ArtificialBrain):
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'stone' in \
                             info['obj_id']:
                         # If human said to remove this rock, willingness up for being willing to communicate
-                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg.content for mssg in self._received_messages]):
+                        if self._obstacle_flag and any(['Remove:' in mssg.content and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['competence'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
