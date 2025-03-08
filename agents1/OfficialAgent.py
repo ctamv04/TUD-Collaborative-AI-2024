@@ -574,7 +574,6 @@ class BaselineAgent(ArtificialBrain):
                         # If human said to remove this rock, willingness up for being willing to communicate
                         if self._obstacle_flag and any(['Remove:' in mssg and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
-                            self._trust_beliefs[self._human_name]['remove']['competence'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
@@ -865,9 +864,9 @@ class BaselineAgent(ArtificialBrain):
                 # Add the area to the list of searched areas
                 if self._door['room_name'] not in self._searched_rooms:
                     self._searched_rooms.append(self._door['room_name'])
-                # Make a plan to rescue a found critically injured victim if the human decides so if the human is known to not be a liar 
+                # Make a plan to rescue a found critically injured victim if the human decides so
                 if self.received_messages_content and self.received_messages_content[
-                    -1] == 'Rescue' and 'critical' in self._recent_vic and random.random() <= (1 + self._trust_beliefs[self._human_name]['rescue']['willingness']) / 1.5:
+                    -1] == 'Rescue' and 'critical' in self._recent_vic:
 
                     self._rescue = 'together'
                     self._answered = True
