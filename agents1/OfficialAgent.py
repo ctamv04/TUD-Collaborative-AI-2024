@@ -465,7 +465,7 @@ class BaselineAgent(ArtificialBrain):
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
-                        if len([mssg for mssg in new_messages if 'Search:' in mssg.content and self._door['room_name'] in mssg.content]) > 0:
+                        if self._door['room_name'] in self._searched_rooms:
                             self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['willingness'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['willingness'] - 0.5) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['confidence'] += 1
@@ -526,7 +526,7 @@ class BaselineAgent(ArtificialBrain):
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
-                        if len([mssg for mssg in new_messages if 'Search:' in mssg.content and self._door['room_name'] in mssg.content]) > 0:
+                        if self._door['room_name'] in self._searched_rooms:
                             self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['willingness'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['willingness'] - 0.5) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['confidence'] += 1
@@ -573,7 +573,7 @@ class BaselineAgent(ArtificialBrain):
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
-                        if len([mssg for mssg in new_messages if 'Search:' in mssg.content and self._door['room_name'] in mssg.content]) > 0:
+                        if self._door['room_name'] in self._searched_rooms:
                             self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['willingness'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['willingness'] - 0.5) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['search']['confidence'] += 1
