@@ -1180,8 +1180,6 @@ class BaselineAgent(ArtificialBrain):
                     area = 'area ' + msg.split()[-1]
                     if area not in self._searched_rooms:
                         self._searched_rooms.append(area)
-                        # Plan the path to the relevant area
-                        self._phase = Phase.PLAN_PATH_TO_ROOM
                 # If a received message involves team members finding victims, add these victims and their locations to memory
                 if msg.startswith("Found:"):
                     if self.believe(self._trust_beliefs[self._human_name]['search']['willingness']) and (self.believe(self._trust_beliefs[self._human_name]['search']['competence']) or not self.believe(self._trust_beliefs[self._human_name]['search']['competence'])):
