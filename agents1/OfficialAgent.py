@@ -224,6 +224,11 @@ class BaselineAgent(ArtificialBrain):
                 if 'is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) > 1:
                     self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] + 1) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                     self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
+                    self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 1) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
+                    self._trust_beliefs[self._human_name]['search']['confidence'] += 1
+                    self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 1) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
+                    self._trust_beliefs[self._human_name]['search']['confidence'] += 1
+                    self._current_door = None
 
             if Phase.INTRO == self._phase:
                 # Send introduction message
