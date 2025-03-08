@@ -97,17 +97,17 @@ def output_logger(fld):
         if index1 == -1:
             data.append(name + ';' + task + ';' + competence + ';' + willingness + '\n')
         else:
-            data[index] = name + ';' + task + ';' + competence + ';' + willingness + '\n'
+            data[index1] = name + ';' + task + ';' + competence + ';' + willingness + '\n'
 
         if index2 == -1:
             data.append(name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n')
         else:
-            data[index] = name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n'
+            data[index2] = name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n'
 
         if index3 == -1:
             data.append(name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + '\n')
         else:
-            data[index] = name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + '\n'
+            data[index3] = name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + '\n'
             
-    with open(folder + '/beliefs/allTrustBeliefs.csv', mode='w') as csv_file:
+    with open(fld + '/beliefs/allTrustBeliefs.csv', mode='w') as csv_file:
         csv_file.writelines(data)    
