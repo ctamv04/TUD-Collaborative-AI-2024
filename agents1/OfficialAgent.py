@@ -80,7 +80,6 @@ class BaselineAgent(ArtificialBrain):
         self._processed_messages = []
         self._collected_by_agent = []
         self._trust_beliefs = {}
-        self._last_mssg_idx = 0
         self._obstacle_flag = False
         self._obstacle_flag_2 = False
 
@@ -109,6 +108,22 @@ class BaselineAgent(ArtificialBrain):
             for member in self._team_members:
                 if mssg.from_id == member and mssg.content not in self._received_messages:
                     self._received_messages.append(mssg.content)
+
+                    # If there is a mildly injured victim found we reduce the competence a bit, if the human then anounces they collected the victim it will be returned with a bonus
+                    # This is intended to filter for weak humans
+                    if mssg.content.startswith('Found:'):
+                        if 'mildly' in mssg.content:
+                            self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] - 0.3) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                            self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
+                        # Increase the competence a bit because the human might have had to remove an obstacle to find the victim
+                        self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 0.4) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
+                        self._trust_beliefs[self._human_name]['search']['confidence'] += 1
+                    if mssg.content.startswith('Collect:'):
+                        # We refund a bit of competence if the human says they alone collected a mildli injured victim
+                        if 'mildly' in mssg.content:
+                            self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] + 0.5) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                            self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
+                    
 
         if self._first_run:
             self._trust_beliefs = self._loadBelief(self._team_members, self._folder, 'all')
@@ -176,21 +191,25 @@ class BaselineAgent(ArtificialBrain):
                     vic = str(info['img_name'][8:-4])
                     reported = any(['Collect:' in x and vic in x for x in self._received_messages])
                     saved = any(['class_inheritance' in x and 'CollectableBlock' in x['class_inheritance'] and str(x['img_name'][8:-4]) == vic for x in vicinity_blocks if 'class_inheritance' in x and 'CollectableBlock' in x['class_inheritance'] and str(x['img_name'][8:-4]) == vic])
+                    saved_by_agent = any([vic in x for x in self._collected_by_agent])
 
                     if reported != False or saved != False and (vic not in self._victim_info or reported != self._victim_info[vic]['reported'] or saved != self._victim_info[vic]['saved']):
+                        if reported and saved_by_agent:
+                            self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] - 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                            self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                         if reported and saved:
                             # Otherwise, increase both
                             self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] + 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] + 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
-                        elif reported:
+                        if reported and not saved:
                             # If less victims present than reported, decrease competence
                             self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] - 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
-                        else:
-                            # If more victims present than reported, decrease willingness
-                            self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] - 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
-                            self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
+                        # elif not reported and saved:
+                        #     # If more victims present than reported, decrease willingness
+                        #     self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] - 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                        #     self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                     processed.append(vic)
                     self._victim_info[vic] = {'reported': reported, 'saved': saved}    
 
@@ -1151,12 +1170,8 @@ class BaselineAgent(ArtificialBrain):
                 if mssg.from_id == member:
                     receivedMessages[member].append(mssg.content)
 
-        values = list(receivedMessages.values())
-        if len(values) < self._last_mssg_idx:
-            self._last_mssg_idx = 0
-
         # Check the content of the received messages
-        for mssgs in values[self._last_mssg_idx:]:
+        for mssgs in receivedMessages.values():
             for msg in mssgs:
                 # If a received message involves team members searching areas, add these areas to the memory of areas that have been explored
                 if msg.startswith("Search:"):
@@ -1166,7 +1181,6 @@ class BaselineAgent(ArtificialBrain):
                         self._searched_rooms.append(area)
                         # Plan the path to the relevant area
                         self._phase = Phase.PLAN_PATH_TO_ROOM
-                
                 # If a received message involves team members finding victims, add these victims and their locations to memory
                 if msg.startswith("Found:"):
                     if self.believe(self._trust_beliefs[self._human_name]['search']['willingness']) and (self.believe(self._trust_beliefs[self._human_name]['search']['competence']) or not self.believe(self._trust_beliefs[self._human_name]['search']['competence'])):
@@ -1176,11 +1190,6 @@ class BaselineAgent(ArtificialBrain):
                         else:
                             foundVic = ' '.join(msg.split()[1:5])
                         loc = 'area ' + msg.split()[-1]
-                        # If there is a mildly injured victim found we reduce the competence a bit, if the human then anounces they collected the victim it will be returned with a bonus
-                        # This is intended to filter for weak humans
-                        if 'mildly' in msg:
-                            self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] - 0.3) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
-                            self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                         # Add the area to the memory of searched areas
                         if loc not in self._searched_rooms:
                             self._searched_rooms.append(loc)
@@ -1196,9 +1205,6 @@ class BaselineAgent(ArtificialBrain):
                         # Add the found victim to the to do list when the human's condition is not 'weak'
                         if 'mild' in foundVic and condition != 'weak':
                             self._todo.append(foundVic)
-                        # Increase the competence a bit because the human might have had to remove an obstacle to find the victim
-                        self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 0.4) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
-                        self._trust_beliefs[self._human_name]['search']['confidence'] += 1
                 # If a received message involves team members rescuing victims, add these victims and their locations to memory
                 if msg.startswith('Collect:'):
                     # Identify which victim and area it concerns
@@ -1207,10 +1213,6 @@ class BaselineAgent(ArtificialBrain):
                     else:
                         collectVic = ' '.join(msg.split()[1:5])
                     loc = 'area ' + msg.split()[-1]
-                    # We refund a bit of competence if the human says they alone collected a mildli injured victim
-                    if 'mildly' in msg:
-                        self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] + 0.5) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
-                        self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                     # Add the area to the memory of searched areas
                     if loc not in self._searched_rooms:
                         self._searched_rooms.append(loc)
@@ -1260,9 +1262,6 @@ class BaselineAgent(ArtificialBrain):
             if mssgs and mssgs[-1].split()[-1] in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13',
                                                    '14']:
                 self._human_loc = int(mssgs[-1].split()[-1])
-
-        self._last_mssg_idx = len(values)
-        
 
     def _loadBelief(self, members, folder, source):
         '''
