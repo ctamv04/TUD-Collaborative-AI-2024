@@ -951,6 +951,11 @@ class BaselineAgent(ArtificialBrain):
                     -1] == 'Rescue alone' and 'mild' in self._recent_vic:
                     self._send_message('Picking up ' + self._recent_vic + ' in ' + self._door['room_name'] + '.',
                                         'RescueBot')
+                    # If human doesn't help with mildly injured victim then they may be lazy
+                    self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] - 0.3) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                    self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] - 0.3) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
+                    self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
+
                     self._rescue = 'alone'
                     self._answered = True
                     self._waiting = False
