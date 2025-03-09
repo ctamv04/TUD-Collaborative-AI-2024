@@ -128,9 +128,9 @@ class BaselineAgent(ArtificialBrain):
 
         if self._first_run:
             # self._trust_beliefs = self._loadBelief(self._team_members, self._folder, 'all')
-            self._trust_beliefs.setdefault(self._human_name,{}).update({'search': {'competence': 1, 'willingness': 1, 'confidence': 1}})
-            self._trust_beliefs.setdefault(self._human_name,{}).update({'remove': {'competence': 1, 'willingness': 1, 'confidence': 1}})
-            self._trust_beliefs.setdefault(self._human_name,{}).update({'rescue': {'competence': 1, 'willingness': 1, 'confidence': 1}})
+            self._trust_beliefs.setdefault(self._human_name,{}).update({'search': {'competence': random.uniform(-1, 1), 'willingness': random.uniform(-1, 1), 'confidence': 1}})
+            self._trust_beliefs.setdefault(self._human_name,{}).update({'remove': {'competence': random.uniform(-1, 1), 'willingness': random.uniform(-1, 1), 'confidence': 1}})
+            self._trust_beliefs.setdefault(self._human_name,{}).update({'rescue': {'competence': random.uniform(-1, 1), 'willingness': random.uniform(-1, 1), 'confidence': 1}})
             self._first_run = False
         # Process messages from team members
         self._process_messages(state, self._team_members, self._condition)
