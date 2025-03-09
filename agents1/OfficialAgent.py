@@ -206,10 +206,10 @@ class BaselineAgent(ArtificialBrain):
                         self._trust_beliefs[self._human_name]['rescue']['competence'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['competence'] + 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                         self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                     # Saved victim without communicating
-                    if not reported and not saved_by_agent:
+                    elif not reported and not saved_by_agent:
                         self._trust_beliefs[self._human_name]['rescue']['willingness'] = ((self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1) * self._trust_beliefs[self._human_name]['rescue']['willingness'] - 0.4) / (self._trust_beliefs[self._human_name]['rescue']['confidence'] + 1)
                         self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
-                    self.processed_victims.append(vic)
+                    self._processed_victims.append(vic)
 
             # # If victim successfully delivered while carrying together, increase competence significantly
             # if self._carrying_together and any(['is_human_agent' in info and self._human_name in info['name'] and len(info['is_carrying']) == 0 for info in vicinity_blocks]):
@@ -482,7 +482,7 @@ class BaselineAgent(ArtificialBrain):
                 for info in state.values():
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'rock' in info[
                         'obj_id']:
-                        # If human said to remove this rock, willingness up for being willing to communicate
+                        # If human said to remove this rock, willingness up for being truthful
                         if self._obstacle_flag and any(['Remove:' in mssg and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
@@ -545,7 +545,7 @@ class BaselineAgent(ArtificialBrain):
 
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'tree' in info[
                         'obj_id']:
-                        # If human said to remove this rock, willingness up for being willing to communicate
+                        # If human said to remove this tree, willingness up for being truthful
                         if self._obstacle_flag and any(['Remove:' in mssg and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
@@ -593,10 +593,11 @@ class BaselineAgent(ArtificialBrain):
 
                     if 'class_inheritance' in info and 'ObstacleObject' in info['class_inheritance'] and 'stone' in \
                             info['obj_id']:
-                        # If human said to remove this rock, willingness up for being willing to communicate
+                        # If human said to remove these stones, willingness up for being truthful. It's also likely he's weak
                         if self._obstacle_flag and any(['Remove:' in mssg and self._door['room_name'] in mssg for mssg in self._received_messages]):
                             self._obstacle_flag = False
                             self._trust_beliefs[self._human_name]['remove']['willingness'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['willingness'] + 0.3) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
+                            self._trust_beliefs[self._human_name]['remove']['competence'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['competence'] - 1) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
                             self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
                         # Room is blocked, so human couldn't have searched it. So if they said they did, they lied or were lazy
                         if self._obstacle_flag_2 and self._door['room_name'] in self._searched_rooms:
