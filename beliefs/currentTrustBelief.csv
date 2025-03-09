@@ -1,4 +1,8 @@
-name;task;competence;willingness;confidence
-charlie;search;0.3204761904761905;0.5249999999999999;8
-charlie;rescue;0.8474819708917042;0.4536854514918187;34
-charlie;remove;0.17499999999999993;0.5;4
+name;task;competence;willingness;confidence
+
+chris;search;0.5;0.5;1
+
+chris;rescue;0.5;0.5;1
+
+chris;remove;0.5;0.5;1
+

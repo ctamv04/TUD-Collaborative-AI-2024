@@ -95,19 +95,19 @@ def output_logger(fld):
             i += 1
 
         if index1 == -1:
-            data.append(name + ';' + task + ';' + competence + ';' + willingness + '\n')
+            data.append(name + ';' + task + ';' + competence + ';' + willingness + ';' + confidence + '\n')
         else:
-            data[index1] = name + ';' + task + ';' + competence + ';' + willingness + '\n'
+            data[index1] = name + ';' + task + ';' + competence + ';' + willingness + ';' + confidence + '\n'
 
         if index2 == -1:
-            data.append(name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n')
+            data.append(name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + ';' + confidence2 + '\n')
         else:
-            data[index2] = name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + '\n'
+            data[index2] = name2 + ';' + task2 + ';' + competence2 + ';' + willingness2 + ';' + confidence2 + '\n'
 
         if index3 == -1:
-            data.append(name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + '\n')
+            data.append(name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + ';' + confidence3 + '\n')
         else:
-            data[index3] = name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + '\n'
+            data[index3] = name3 + ';' + task3 + ';' + competence3 + ';' + willingness3 + ';' + confidence3 + '\n'
             
     with open(fld + '/beliefs/allTrustBeliefs.csv', mode='w') as csv_file:
         csv_file.writelines(data)    
