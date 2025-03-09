@@ -224,9 +224,9 @@ class BaselineAgent(ArtificialBrain):
                     self._trust_beliefs[self._human_name]['rescue']['confidence'] += 1
                     self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 1) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
                     self._trust_beliefs[self._human_name]['search']['confidence'] += 1
-                    self._trust_beliefs[self._human_name]['search']['competence'] = ((self._trust_beliefs[self._human_name]['search']['confidence'] + 1) * self._trust_beliefs[self._human_name]['search']['competence'] + 1) / (self._trust_beliefs[self._human_name]['search']['confidence'] + 1)
-                    self._trust_beliefs[self._human_name]['search']['confidence'] += 1
-                    self._current_door = None
+                    self._trust_beliefs[self._human_name]['remove']['competence'] = ((self._trust_beliefs[self._human_name]['remove']['confidence'] + 1) * self._trust_beliefs[self._human_name]['remove']['competence'] + 1) / (self._trust_beliefs[self._human_name]['remove']['confidence'] + 1)
+                    self._trust_beliefs[self._human_name]['remove']['confidence'] += 1
+                   
 
             if Phase.INTRO == self._phase:
                 # Send introduction message
